@@ -25,38 +25,8 @@ classes = ("General trash", "Paper", "Paper pack", "Metal", "Glass",
 train_pipeline = [
     dict(type='LoadImageFromFile', backend_args=backend_args),
     dict(type='LoadAnnotations', with_bbox=True),
+    dict(type='Resize', scale=(1024, 1024), keep_ratio=True),
     dict(type='RandomFlip', prob=0.5),
-    dict(
-        type='RandomChoice',
-        transforms=[
-            [
-                dict(
-                    type='RandomChoiceResize',
-                    scales=[(1500, 2048), (1600, 2048), (1700, 2048), (1800, 2048),
-                            (1900, 2048), (2000, 2048), (2048, 2048)],
-                    keep_ratio=True
-                ),
-                dict(type='RandomFlip', flip_ratio=0.5)
-            ],
-            [
-                dict(
-                    type='RandomChoiceResize',
-                    scales=[(1500, 2048), (1600, 2048), (1700, 2048)],
-                    keep_ratio=True),
-                dict(
-                    type='RandomCrop',
-                    crop_type='absolute_range',
-                    crop_size=(1024, 1024),
-                    allow_negative_crop=True
-                ),
-                dict(
-                    type='RandomChoiceResize',
-                    scales=[(1500, 2048), (1600, 2048), (1700, 2048)],
-                    keep_ratio=True),
-                dict(type='RandomFlip', flip_ratio=0.5)
-            ]
-        ]
-    ),
     dict(type='PackDetInputs')
 ]
 test_pipeline = [
@@ -82,7 +52,7 @@ train_dataloader = dict(
         metainfo=dict(classes=classes),
         ann_file='stfold/train_kfold_0.json',
         data_prefix=dict(img=''),
-        filter_cfg=dict(filter_empty_gt=True, min_size=32),
+        filter_cfg=dict(filter_empty_gt=True, min_size=5),
         pipeline=train_pipeline,
         backend_args=backend_args))
 

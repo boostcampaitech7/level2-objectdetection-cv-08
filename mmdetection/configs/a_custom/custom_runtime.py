@@ -4,7 +4,7 @@ default_hooks = dict(
     timer=dict(type='IterTimerHook'),
     logger=dict(type='LoggerHook', interval=50),
     param_scheduler=dict(type='ParamSchedulerHook'),
-    checkpoint=dict(type='CheckpointHook', interval=1),
+    checkpoint=dict(type='CheckpointHook', interval=10),
     sampler_seed=dict(type='DistSamplerSeedHook'),
     visualization=dict(type='DetVisualizationHook')
 )
@@ -19,17 +19,17 @@ env_cfg = dict(
 vis_backends = [dict(type='LocalVisBackend')]
 
 # Visualizer에 MLflow 연결
-vis_backends = [
-    dict(type='LocalVisBackend'),
-    dict(
-        type='MLflowVisBackend',
-        save_dir='/data/ephemeral/home/db_dir',
-        exp_name='recycle_detection_experiment',
-        run_name=f'fold_run',
-        tracking_uri='https://f0bf-223-130-141-5.ngrok-free.app',
-        artifact_suffix=['.json', '.log', '.py', 'yaml']
-    )
-]
+# vis_backends = [
+#     dict(type='LocalVisBackend'),
+#     dict(
+#         type='MLflowVisBackend',
+#         save_dir='/data/ephemeral/home/db_dir',
+#         exp_name='recycle_detection_experiment',
+#         run_name=f'fold_run',
+#         tracking_uri='https://f0bf-223-130-141-5.ngrok-free.app',
+#         artifact_suffix=['.json', '.log', '.py', 'yaml']
+#     )
+# ]
 
 visualizer = dict(
     type='DetLocalVisualizer', vis_backends=vis_backends, name='visualizer')
