@@ -104,7 +104,7 @@ default_hooks = dict(
     timer=dict(type='IterTimerHook'),
     logger=dict(type='LoggerHook', interval=50),
     param_scheduler=dict(type='ParamSchedulerHook'),
-    checkpoint=dict(type='CheckpointHook', interval=10),
+    checkpoint=dict(type='CheckpointHook', interval=1, save_best="coco/bbox_mAP",rule="greater"),
     sampler_seed=dict(type='DistSamplerSeedHook'),
     visualization=dict(type='DetVisualizationHook')
 )
@@ -167,6 +167,7 @@ param_scheduler = [
 # optimizer
 optim_wrapper = dict(
     type='OptimWrapper',
+    clip_grad=dict(max_norm=35, norm_type=2),
     optimizer=dict(type='SGD', lr=0.02, momentum=0.9, weight_decay=0.0001))
 
 # Default setting for scaling LR automatically
@@ -181,8 +182,10 @@ auto_scale_lr = dict(enable=False, base_batch_size=16)
 #######################################################################################
 # 오버라이딩을 신경쓰면서 모델 제작할것 ex) cascade faster rcnn
 ################################### MODEL! ############################################
+
 rpn_weight = 0.7
 
+# model settings
 model = dict(
     type='FasterRCNN',
     data_preprocessor=dict(
@@ -197,7 +200,7 @@ model = dict(
         num_stages=4,
         out_indices=(0, 1, 2, 3),
         frozen_stages=1,
-        norm_cfg=dict(requires_grad=False),
+        norm_cfg=dict(type='BN', requires_grad=True),
         norm_eval=True,
         style='caffe',
         init_cfg=dict(
@@ -264,13 +267,15 @@ model = dict(
             in_channels=256,
             fc_out_channels=1024,
             roi_feat_size=7,
-            num_classes=10,
-            bbox_coder=dict(target_stds=[0.04, 0.04, 0.08, 0.08]),
+            num_classes=80,
+            bbox_coder=dict(
+                type='DeltaXYWHBBoxCoder',
+                target_means=[0., 0., 0., 0.],
+                target_stds=[0.04, 0.04, 0.08, 0.08]),
             reg_class_agnostic=False,
             loss_cls=dict(
                 type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.5),
-            loss_bbox=dict(type='SmoothL1Loss', beta=1.0, loss_weight=1.0))),
-
+            loss_bbox=dict(type='SmoothL1Loss',beta=1.0 ,loss_weight=1.0))),
     # model training and testing settings
     train_cfg=dict(
         rpn=[
@@ -320,8 +325,8 @@ model = dict(
             debug=False)),
     test_cfg=dict(
         rpn=dict(
-            nms_pre=1000,
-            max_per_img=300,
+            nms_pre=300,
+            max_per_img=1000,
             nms=dict(type='nms', iou_threshold=0.8),
             min_bbox_size=0),
         rcnn=dict(
@@ -332,7 +337,6 @@ model = dict(
         # e.g., nms=dict(type='soft_nms', iou_threshold=0.5, min_score=0.05)
     ))
 
-optim_wrapper = dict(clip_grad=dict(max_norm=35, norm_type=2))
 
 ################################### MODEL! ############################################
 #######################################################################################
