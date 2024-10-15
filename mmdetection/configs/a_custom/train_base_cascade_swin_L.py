@@ -105,8 +105,7 @@ default_hooks = dict(
     logger=dict(type='LoggerHook', interval=50),
     param_scheduler=dict(type='ParamSchedulerHook'),
     checkpoint=dict(type='CheckpointHook', interval=1, 
-                    save_best="coco/bbox_mAP",
-                    rule="greater"),
+                    save_best="auto"),
     sampler_seed=dict(type='DistSamplerSeedHook'),
     visualization=dict(type='DetVisualizationHook')
 )
@@ -149,7 +148,7 @@ resume = False
 #######################################################################################
 ################################# SCHEDULER! ##########################################
 # training schedule for 1x
-train_cfg = dict(type='EpochBasedTrainLoop', max_epochs=10, val_interval=1)
+train_cfg = dict(type='EpochBasedTrainLoop', max_epochs=12, val_interval=1)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 
@@ -184,7 +183,7 @@ auto_scale_lr = dict(enable=False, base_batch_size=16)
 #######################################################################################
 # 오버라이딩을 신경쓰면서 모델 제작할것 ex) cascade faster rcnn
 ################################### MODEL! ############################################
-
+pretrained = 'https://github.com/SwinTransformer/storage/releases/download/v1.0.0/swin_large_patch4_window12_384_22k.pth'  # noqa
 rpn_weight = 0.7
 
 # model settings
@@ -197,20 +196,28 @@ model = dict(
         bgr_to_rgb=False,
         pad_size_divisor=32),
     backbone=dict(
-        type='ResNet',
-        depth=50,
-        num_stages=4,
+        type='SwinTransformer',
+        pretrain_img_size=384,
+        embed_dims=192,
+        depths=[2, 2, 18, 2],
+        num_heads=[6, 12, 24, 48],
+        window_size=12,
+        mlp_ratio=4,
+        qkv_bias=True,
+        qk_scale=None,
+        drop_rate=0.,
+        attn_drop_rate=0.,
+        drop_path_rate=0.2,
+        patch_norm=True,
         out_indices=(0, 1, 2, 3),
-        frozen_stages=1,
-        norm_cfg=dict(type='BN', requires_grad=True),
-        norm_eval=True,
-        style='caffe',
-        init_cfg=dict(
-            type='Pretrained',
-            checkpoint='open-mmlab://detectron2/resnet50_caffe')),
+        # Please only add indices that would be used
+        # in FPN, otherwise some parameter will not be used
+        with_cp=True,
+        convert_weights=True,
+        init_cfg=dict(type='Pretrained', checkpoint=pretrained)),
     neck=dict(
         type='FPN',
-        in_channels=[256, 512, 1024, 2048],
+        in_channels=[192, 384, 768, 1536],
         out_channels=256,
         num_outs=5),
     rpn_head=dict(
@@ -269,7 +276,7 @@ model = dict(
             in_channels=256,
             fc_out_channels=1024,
             roi_feat_size=7,
-            num_classes=80,
+            num_classes=10,
             bbox_coder=dict(
                 type='DeltaXYWHBBoxCoder',
                 target_means=[0., 0., 0., 0.],
