@@ -13,7 +13,7 @@ train_pipeline = [
     dict(type='LoadImageFromFile', backend_args=backend_args),
     dict(type='LoadAnnotations', with_bbox=True),
     dict(type='Resize', scale=(1024, 1024), keep_ratio=True),
-    dict(type='RandomFlip', prob=0.5),
+    #dict(type='RandomFlip', prob=0.5),
     dict(type='PackDetInputs')
 ]
 test_pipeline = [
@@ -90,7 +90,7 @@ test_evaluator = dict(
     metric='bbox',
     format_only=True,
     ann_file=data_root + 'test.json',
-    outfile_prefix='./work_dirs/test')
+    outfile_prefix='./work_dirs/result/test')
 
 ################################ DATASET! #############################################
 #######################################################################################
@@ -105,7 +105,7 @@ default_hooks = dict(
     param_scheduler=dict(type='ParamSchedulerHook'),
     checkpoint=dict(type='CheckpointHook', interval=1, 
                     max_keep_ckpts=3,
-                    save_best="coco/bbox_mAP",
+                    save_best="coco/bbox_mAP_50",
                     rule="greater"),
     sampler_seed=dict(type='DistSamplerSeedHook'),
     visualization=dict(type='DetVisualizationHook')
@@ -126,9 +126,9 @@ vis_backends = [dict(type='LocalVisBackend')]
 #     dict(
 #         type='MLflowVisBackend',
 #         save_dir='/data/ephemeral/home/db_dir',
-#         exp_name='recycle_detection_experiment',
-#         run_name=f'fold_run',
-#         tracking_uri='https://f0bf-223-130-141-5.ngrok-free.app',
+#         exp_name='recycle_exp',
+#         run_name=f'model_test',
+#         tracking_uri='https://3151-223-130-141-5.ngrok-free.app',
 #         artifact_suffix=['.json', '.log', '.py', 'yaml']
 #     )
 # ]
@@ -149,7 +149,7 @@ resume = False
 #######################################################################################
 ################################# SCHEDULER! ##########################################
 # training schedule for 1x
-train_cfg = dict(type='EpochBasedTrainLoop', max_epochs=15, val_interval=1)
+train_cfg = dict(type='EpochBasedTrainLoop', max_epochs=12, val_interval=1)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 
@@ -188,7 +188,7 @@ auto_scale_lr = dict(enable=False, base_batch_size=16)
 #rpn_weight = 0.7
 
 # model settings
-mmodel = dict(
+model = dict(
     type='FasterRCNN',
     data_preprocessor=dict(
         type='DetDataPreprocessor',
@@ -239,7 +239,7 @@ mmodel = dict(
             in_channels=256,
             fc_out_channels=1024,
             roi_feat_size=7,
-            num_classes=80,
+            num_classes=10,
             bbox_coder=dict(
                 type='DeltaXYWHBBoxCoder',
                 target_means=[0., 0., 0., 0.],
