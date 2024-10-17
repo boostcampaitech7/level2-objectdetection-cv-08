@@ -13,7 +13,8 @@ classes = ("General trash", "Paper", "Paper pack", "Metal", "Glass",
 train_pipeline = [
     dict(type='LoadImageFromFile', backend_args=backend_args),
     dict(type='LoadAnnotations', with_bbox=True),
-    dict(type='Resize', scale=(1024, 1024), keep_ratio=True),
+    dict(type='Resize', scale=(1500, 1500), keep_ratio=True, interpolation="lanczos"),
+    # dict(type='Resize', scale=(1024, 1024), keep_ratio=True),
     dict(type='RandomFlip', prob=0.5),
     dict(type='PackDetInputs')
 ]
@@ -38,7 +39,7 @@ train_dataloader = dict(
         type=dataset_type,
         data_root=data_root,
         metainfo=dict(classes=classes),
-        ann_file='stfold/train_kfold_0.json',
+        ann_file='cleandata/filtered_train_less_than_14_bbox2.json',
         data_prefix=dict(img=''),
         filter_cfg=dict(filter_empty_gt=True, min_size=5),
         pipeline=train_pipeline,
@@ -54,7 +55,7 @@ val_dataloader = dict(
         type=dataset_type,
         data_root=data_root,
         metainfo=dict(classes=classes),
-        ann_file='stfold/val_kfold_0.json',
+        ann_file='cleandata/cleaning_val_fold.json',
         data_prefix=dict(img=''),
         test_mode=False,
         pipeline=test_pipeline,
@@ -63,7 +64,7 @@ test_dataloader = val_dataloader
 
 val_evaluator = dict(
     type='CocoMetric',
-    ann_file=data_root + 'stfold/val_kfold_0.json',
+    ann_file=data_root + 'cleandata/cleaning_val_fold.json',
     metric='bbox',
     format_only=False,
     backend_args=backend_args)
@@ -105,7 +106,7 @@ default_hooks = dict(
     logger=dict(type='LoggerHook', interval=50),
     param_scheduler=dict(type='ParamSchedulerHook'),
     checkpoint=dict(type='CheckpointHook', interval=1, 
-                    save_best="auto"),
+                    save_best="auto", max_keep_ckpts=3),
     sampler_seed=dict(type='DistSamplerSeedHook'),
     visualization=dict(type='DetVisualizationHook')
 )
@@ -120,17 +121,17 @@ env_cfg = dict(
 vis_backends = [dict(type='LocalVisBackend')]
 
 # Visualizer에 MLflow 연결
-# vis_backends = [
-#     dict(type='LocalVisBackend'),
-#     dict(
-#         type='MLflowVisBackend',
-#         save_dir='/data/ephemeral/home/db_dir',
-#         exp_name='recycle_detection_experiment',
-#         run_name=f'fold_run',
-#         tracking_uri='https://f0bf-223-130-141-5.ngrok-free.app',
-#         artifact_suffix=['.json', '.log', '.py', 'yaml']
-#     )
-# ]
+vis_backends = [
+    dict(type='LocalVisBackend'),
+    dict(
+        type='MLflowVisBackend',
+        save_dir='/data/ephemeral/home/db_dir',
+        exp_name='model_test',
+        run_name=f'cascade_faster_rcnn_Swin_L',
+        tracking_uri='https://3151-223-130-141-5.ngrok-free.app',
+        artifact_suffix=['.json', '.log', '.py', 'yaml']
+    )
+]
 
 visualizer = dict(
     type='DetLocalVisualizer', vis_backends=vis_backends, name='visualizer')
@@ -139,8 +140,8 @@ visualizer = dict(
 log_processor = dict(type='LogProcessor', window_size=50, by_epoch=True)
 
 log_level = 'INFO'
-load_from = None
-resume = False
+load_from = "/data/ephemeral/home/project2/level2-objectdetection-cv-08/mmdetection/work_dirs/train_base_cascade_swin_L/epoch_4.pth"
+resume = True
 
 ################################# RUNTIME! ############################################
 #######################################################################################
