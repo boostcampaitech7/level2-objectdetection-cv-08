@@ -121,17 +121,17 @@ env_cfg = dict(
 vis_backends = [dict(type='LocalVisBackend')]
 
 # Visualizer에 MLflow 연결
-vis_backends = [
-    dict(type='LocalVisBackend'),
-    dict(
-        type='MLflowVisBackend',
-        save_dir='/data/ephemeral/home/db_dir',
-        exp_name='model_test',
-        run_name=f'cascade_faster_rcnn_Swin_L',
-        tracking_uri='https://3151-223-130-141-5.ngrok-free.app',
-        artifact_suffix=['.json', '.log', '.py', 'yaml']
-    )
-]
+# vis_backends = [
+#     dict(type='LocalVisBackend'),
+#     dict(
+#         type='MLflowVisBackend',
+#         save_dir='/data/ephemeral/home/db_dir',
+#         exp_name='model_test',
+#         run_name=f'cascade_faster_rcnn_Swin_L',
+#         tracking_uri='https://3151-223-130-141-5.ngrok-free.app',
+#         artifact_suffix=['.json', '.log', '.py', 'yaml']
+#     )
+# ]
 
 visualizer = dict(
     type='DetLocalVisualizer', vis_backends=vis_backends, name='visualizer')
@@ -140,7 +140,7 @@ visualizer = dict(
 log_processor = dict(type='LogProcessor', window_size=50, by_epoch=True)
 
 log_level = 'INFO'
-load_from = "/data/ephemeral/home/project2/level2-objectdetection-cv-08/mmdetection/work_dirs/train_base_cascade_swin_L/epoch_4.pth"
+load_from = "/data/ephemeral/home/project2/level2-objectdetection-cv-08/mmdetection/work_dirs/train_base_cascade_swin_L/epoch_9.pth"
 resume = True
 
 ################################# RUNTIME! ############################################

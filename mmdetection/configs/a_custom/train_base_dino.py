@@ -29,7 +29,7 @@ test_pipeline = [
 ]
 
 train_dataloader = dict(
-    batch_size=4,
+    batch_size=2,
     num_workers=4,
     persistent_workers=True,
     sampler=dict(type='DefaultSampler', shuffle=True),
@@ -40,7 +40,7 @@ train_dataloader = dict(
         metainfo=dict(classes=classes),
         ann_file='stfold/train_kfold_0.json',
         data_prefix=dict(img=''),
-        filter_cfg=dict(filter_empty_gt=True, min_size=5),
+        filter_cfg=dict(filter_empty_gt=True, min_size=0),
         pipeline=train_pipeline,
         backend_args=backend_args))
 
@@ -66,6 +66,7 @@ val_evaluator = dict(
     ann_file=data_root + 'stfold/val_kfold_0.json',
     metric='bbox',
     format_only=False,
+    classwise=True,
     backend_args=backend_args)
 test_evaluator = val_evaluator
 
@@ -90,6 +91,7 @@ test_evaluator = dict(
     type='CocoMetric',
     metric='bbox',
     format_only=True,
+    classwise=True,
     ann_file=data_root + 'test.json',
     outfile_prefix='./work_dirs/test')
 
@@ -102,9 +104,10 @@ default_scope = 'mmdet'
 
 default_hooks = dict(
     timer=dict(type='IterTimerHook'),
-    logger=dict(type='LoggerHook', interval=50),
+    logger=dict(type='LoggerHook', interval=10),
     param_scheduler=dict(type='ParamSchedulerHook'),
-    checkpoint=dict(type='CheckpointHook', interval=1, 
+    checkpoint=dict(type='CheckpointHook', interval=1,
+                    max_keep_ckpts=3, 
                     save_best="coco/bbox_mAP",
                     rule="greater"),
     sampler_seed=dict(type='DistSamplerSeedHook'),
@@ -121,17 +124,17 @@ env_cfg = dict(
 vis_backends = [dict(type='LocalVisBackend')]
 
 # Visualizer에 MLflow 연결
-# vis_backends = [
-#     dict(type='LocalVisBackend'),
-#     dict(
-#         type='MLflowVisBackend',
-#         save_dir='/data/ephemeral/home/db_dir',
-#         exp_name='recycle_detection_experiment',
-#         run_name=f'fold_run',
-#         tracking_uri='https://f0bf-223-130-141-5.ngrok-free.app',
-#         artifact_suffix=['.json', '.log', '.py', 'yaml']
-#     )
-# ]
+vis_backends = [
+    dict(type='LocalVisBackend'),
+    dict(
+        type='MLflowVisBackend',
+        save_dir='/data/ephemeral/home/db_dir',
+        exp_name='model_test',
+        run_name=f'dino',
+        tracking_uri='https://b132-223-130-141-5.ngrok-free.app/',
+        artifact_suffix=['.json', '.log', '.py', 'yaml']
+    )
+]
 
 visualizer = dict(
     type='DetLocalVisualizer', vis_backends=vis_backends, name='visualizer')
@@ -250,7 +253,7 @@ model = dict(
         layer_cfg=dict(
             self_attn_cfg=dict(embed_dims=256, num_heads=8,
                                dropout=0.0),  # 0.1 for DeformDETR
-            cross_attn_cfg=dict(embed_dims=256, num_levels=4,
+            cross_attn_cfg=dict(embed_dims=256, num_levels=num_levels,
                                 dropout=0.0),  # 0.1 for DeformDETR
             ffn_cfg=dict(
                 embed_dims=256,
@@ -264,7 +267,7 @@ model = dict(
         temperature=20),  # 10000 for DeformDETR
     bbox_head=dict(
         type='DINOHead',
-        num_classes=80,
+        num_classes=10,
         sync_cls_avg_factor=True,
         loss_cls=dict(
             type='FocalLoss',
