@@ -72,27 +72,27 @@ test_evaluator = val_evaluator
 
 # inference on test dataset and
 # format the output results for submission.
-test_dataloader = dict(
-    batch_size=1,
-    num_workers=2,
-    persistent_workers=True,
-    drop_last=False,
-    sampler=dict(type='DefaultSampler', shuffle=False),
-    dataset=dict(
-        type=dataset_type,
-        data_root=data_root,
-        metainfo=dict(classes=classes),
-        ann_file=data_root + 'test.json',
-        data_prefix=dict(img=''),
-        test_mode=True,
-        pipeline=test_pipeline))
+# test_dataloader = dict(
+#     batch_size=1,
+#     num_workers=2,
+#     persistent_workers=True,
+#     drop_last=False,
+#     sampler=dict(type='DefaultSampler', shuffle=False),
+#     dataset=dict(
+#         type=dataset_type,
+#         data_root=data_root,
+#         metainfo=dict(classes=classes),
+#         ann_file=data_root + 'test.json',
+#         data_prefix=dict(img=''),
+#         test_mode=True,
+#         pipeline=test_pipeline))
 
-test_evaluator = dict(
-    type='CocoMetric',
-    metric='bbox',
-    format_only=True,
-    ann_file=data_root + 'test.json',
-    outfile_prefix='./work_dirs/test')
+# test_evaluator = dict(
+#     type='CocoMetric',
+#     metric='bbox',
+#     format_only=True,
+#     ann_file=data_root + 'test.json',
+#     outfile_prefix='./work_dirs/test')
 
 ################################ DATASET! #############################################
 #######################################################################################

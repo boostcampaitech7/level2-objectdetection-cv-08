@@ -12,13 +12,13 @@ classes = ("General trash", "Paper", "Paper pack", "Metal", "Glass",
 train_pipeline = [
     dict(type='LoadImageFromFile', backend_args=backend_args),
     dict(type='LoadAnnotations', with_bbox=True),
-    dict(type='Resize', scale=(1024, 1024), keep_ratio=True),
+    dict(type='Resize', scale=(512, 512), keep_ratio=True),
     #dict(type='RandomFlip', prob=0.5),
     dict(type='PackDetInputs')
 ]
 test_pipeline = [
     dict(type='LoadImageFromFile', backend_args=backend_args),
-    dict(type='Resize', scale=(1024, 1024), keep_ratio=True),
+    dict(type='Resize', scale=(512, 512), keep_ratio=True),
     # If you don't have a gt annotation, delete the pipeline
     dict(type='LoadAnnotations', with_bbox=True),
     dict(
@@ -28,7 +28,7 @@ test_pipeline = [
 ]
 
 train_dataloader = dict(
-    batch_size=4,
+    batch_size=64,
     num_workers=4,
     persistent_workers=True,
     sampler=dict(type='DefaultSampler', shuffle=True),
@@ -37,14 +37,14 @@ train_dataloader = dict(
         type=dataset_type,
         data_root=data_root,
         metainfo=dict(classes=classes),
-        ann_file='stfold/train_kfold_0.json',
+        ann_file='newGT/train_kfold_0_newGT.json',
         data_prefix=dict(img=''),
-        filter_cfg=dict(filter_empty_gt=True, min_size=32),
+        filter_cfg=dict(filter_empty_gt=True, min_size=0),
         pipeline=train_pipeline,
         backend_args=backend_args))
 
 val_dataloader = dict(
-    batch_size=1,
+    batch_size=8,
     num_workers=2,
     persistent_workers=True,
     drop_last=False,
@@ -53,7 +53,7 @@ val_dataloader = dict(
         type=dataset_type,
         data_root=data_root,
         metainfo=dict(classes=classes),
-        ann_file='stfold/val_kfold_0.json',
+        ann_file='newGT/val_kfold_0_newGT.json',
         data_prefix=dict(img=''),
         test_mode=False,
         pipeline=test_pipeline,
@@ -62,8 +62,9 @@ val_dataloader = dict(
 
 val_evaluator = dict(
     type='CocoMetric',
-    ann_file=data_root + 'stfold/val_kfold_0.json',
+    ann_file=data_root + 'newGT/val_kfold_0_newGT.json',
     metric='bbox',
+    classwise=True,
     format_only=False,
     backend_args=backend_args)
 #test_evaluator = val_evaluator
@@ -101,10 +102,10 @@ default_scope = 'mmdet'
 
 default_hooks = dict(
     timer=dict(type='IterTimerHook'),
-    logger=dict(type='LoggerHook', interval=50),
+    logger=dict(type='LoggerHook', interval=10),
     param_scheduler=dict(type='ParamSchedulerHook'),
     checkpoint=dict(type='CheckpointHook', interval=1, 
-                    max_keep_ckpts=3,
+                    max_keep_ckpts=1,
                     save_best="coco/bbox_mAP_50",
                     rule="greater"),
     sampler_seed=dict(type='DistSamplerSeedHook'),
@@ -121,17 +122,17 @@ env_cfg = dict(
 vis_backends = [dict(type='LocalVisBackend')]
 
 # Visualizer에 MLflow 연결
-# vis_backends = [
-#     dict(type='LocalVisBackend'),
-#     dict(
-#         type='MLflowVisBackend',
-#         save_dir='/data/ephemeral/home/db_dir',
-#         exp_name='recycle_exp',
-#         run_name=f'model_test',
-#         tracking_uri='https://3151-223-130-141-5.ngrok-free.app',
-#         artifact_suffix=['.json', '.log', '.py', 'yaml']
-#     )
-# ]
+vis_backends = [
+    dict(type='LocalVisBackend'),
+    dict(
+        type='MLflowVisBackend',
+        save_dir='/data/ephemeral/home/db_dir',
+        exp_name='ROI_HEAD_loss_test',
+        run_name=f'Quality_Focal_soft_S_L1',
+        tracking_uri='https://b132-223-130-141-5.ngrok-free.app/',
+        artifact_suffix=['.json', '.log', '.py', 'yaml']
+    )
+]
 
 visualizer = dict(
     type='DetLocalVisualizer', vis_backends=vis_backends, name='visualizer')
@@ -149,14 +150,14 @@ resume = False
 #######################################################################################
 ################################# SCHEDULER! ##########################################
 # training schedule for 1x
-train_cfg = dict(type='EpochBasedTrainLoop', max_epochs=12, val_interval=1)
+train_cfg = dict(type='EpochBasedTrainLoop', max_epochs=10, val_interval=1)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 
 # learning rate
 param_scheduler = [
     dict(
-        type='LinearLR', start_factor=0.001, by_epoch=False, begin=0, end=500),
+        type='LinearLR', start_factor=0.0002, by_epoch=False, begin=0, end=500),
     dict(
         type='MultiStepLR',
         begin=0,
@@ -170,7 +171,7 @@ param_scheduler = [
 optim_wrapper = dict(
     type='OptimWrapper',
     clip_grad=dict(max_norm=35, norm_type=2),
-    optimizer=dict(type='SGD', lr=0.02, momentum=0.9, weight_decay=0.0001))
+    optimizer=dict(type='AdamW', lr=0.0002, weight_decay=0.0001))
 
 # Default setting for scaling LR automatically
 #   - `enable` means enable scaling LR automatically
@@ -185,7 +186,15 @@ auto_scale_lr = dict(enable=False, base_batch_size=16)
 # 오버라이딩을 신경쓰면서 모델 제작할것 ex) cascade faster rcnn
 ################################### MODEL! ############################################
 
-#rpn_weight = 0.7
+# 마지막은 배경
+class_weights = [2.304147465437788, 2.6455026455026456, 3.105590062111801, 
+                 2.9411764705882355, 2.4630541871921183, 2.881844380403458, 
+                 2.525252525252525, 1.7299270072992702, 1.2004801920768308, 
+                 2.450980392156863, 1.0]
+
+bbox_count = [1065,5115,706,
+              769,835,2350,
+              1026,4151,143,377]
 
 # model settings
 model = dict(
@@ -246,8 +255,11 @@ model = dict(
                 target_stds=[0.1, 0.1, 0.2, 0.2]),
             reg_class_agnostic=False,
             loss_cls=dict(
-                type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0),
-            loss_bbox=dict(type='L1Loss', loss_weight=1.0))),
+                type='QualityFocalLoss',use_sigmoid=False),
+            # loss_bbox=dict(type='BalancedL1Loss',beta=1.0 ,loss_weight=1.0)
+            loss_bbox=dict(type='SmoothL1Loss',beta=1.0 ,loss_weight=1.0)
+            )
+            ),
     # model training and testing settings
     train_cfg=dict(
         rpn=dict(

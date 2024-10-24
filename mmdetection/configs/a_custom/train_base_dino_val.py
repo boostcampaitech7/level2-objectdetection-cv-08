@@ -3,49 +3,20 @@
 ################################ DATASET! #############################################
 
 dataset_type = 'CocoDataset'
-data_root = '/data/ephemeral/home/pseudo/'
-test_root = '/data/ephemeral/home/dataset/'
+data_root = '/data/ephemeral/home/dataset/'
 
 backend_args = None
 
 classes = ("General trash", "Paper", "Paper pack", "Metal", "Glass", 
            "Plastic", "Styrofoam", "Plastic bag", "Battery", "Clothing")
 
-tta_model = dict(
-    type='DetTTAModel',
-    tta_cfg=dict(nms=dict(
-        type='nms',
-        iou_threshold=0.5),
-        max_per_img=100))
-
-tta_pipeline = [
-    dict(type='LoadImageFromFile', backend_args=None),
-    dict(
-        type='TestTimeAug',
-        transforms=[[
-            dict(type='Resize', scale=(1333, 800), keep_ratio=True),
-            dict(type='Resize', scale=(1024, 1024), keep_ratio=True),
-            dict(type='Resize', scale=(640, 640), keep_ratio=True),
-        ], [
-            dict(type='RandomFlip', prob=1.0, direction='horizontal'),
-            dict(type='RandomFlip', prob=1.0, direction='vertical'),
-            dict(type='RandomFlip', prob=0.0)
-        ], [
-            dict(
-                type='PackDetInputs',
-                meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-                           'scale_factor', 'flip', 'flip_direction'))
-        ]]
-    )
+train_pipeline = [
+    dict(type='LoadImageFromFile', backend_args=backend_args),
+    dict(type='LoadAnnotations', with_bbox=True),
+    dict(type='Resize', scale=(1024, 1024), keep_ratio=True),
+    dict(type='RandomFlip', prob=0.5),
+    dict(type='PackDetInputs')
 ]
-
-# train_pipeline = [
-#     dict(type='LoadImageFromFile', backend_args=backend_args),
-#     dict(type='LoadAnnotations', with_bbox=True),
-#     dict(type='Resize', scale=(1024, 1024), keep_ratio=True),
-#     dict(type='RandomFlip', prob=0.5),
-#     dict(type='PackDetInputs')
-# ]
 
 test_pipeline = [
     dict(type='LoadImageFromFile', backend_args=backend_args),
@@ -58,11 +29,6 @@ test_pipeline = [
                    'scale_factor'))
 ]
 
-albu_train_transforms = [
-    dict(type='CLAHE',clip_limit=4.0,tile_grid_size=(8, 8),p=0.5),
-    dict(type='GaussNoise', p=0.3)
-]
-
 train_dataloader = dict(
     batch_size=2,
     num_workers=4,
@@ -70,46 +36,14 @@ train_dataloader = dict(
     sampler=dict(type='DefaultSampler', shuffle=True),
     batch_sampler=dict(type='AspectRatioBatchSampler'),
     dataset=dict(
-        type='MultiImageMixDataset',
-        dataset=dict(
-            type='CocoDataset',
-            data_root=data_root,
-            metainfo=dict(classes=classes),
-            ann_file='train.json',
-            data_prefix=dict(img='train/'),
-            filter_cfg=dict(filter_empty_gt=True, min_size=0),
-            pipeline=[
-                dict(type='LoadImageFromFile', backend_args=backend_args),
-                dict(type='LoadAnnotations', with_bbox=True),
-            ],
-            backend_args=backend_args
-        ),
-        pipeline=[
-            dict(type='Resize', scale=(1024, 1024), keep_ratio=True),
-            dict(type='RandomFlip', prob=0.3),
-            dict(type='Albu',
-                transforms=albu_train_transforms,
-                bbox_params=dict(
-                    type='BboxParams',
-                    format='pascal_voc',
-                    label_fields=['gt_bboxes_labels'],
-                    min_visibility=0.0,
-                    filter_lost_elements=True),
-                keymap={
-                    'img': 'image',
-                    'gt_bboxes': 'bboxes'
-                },
-                skip_img_without_anno=True
-            ),
-            dict(type='PhotoMetricDistortion',
-                brightness_delta=16,  # 밝기 변형 범위
-                # contrast_range=(0.8, 1.2),  # 대비 변형 범위
-                saturation_range=(0.8, 1.2),  # 채도 변형 범위
-                hue_delta=10),  # 색조 변형 범위
-            dict(type='PackDetInputs')
-        ]
-    )
-)
+        type=dataset_type,
+        data_root=data_root,
+        metainfo=dict(classes=classes),
+        ann_file='stfold/train_kfold_0.json',
+        data_prefix=dict(img=''),
+        filter_cfg=dict(filter_empty_gt=True, min_size=0),
+        pipeline=train_pipeline,
+        backend_args=backend_args))
 
 val_dataloader = dict(
     batch_size=1,
@@ -121,8 +55,8 @@ val_dataloader = dict(
         type=dataset_type,
         data_root=data_root,
         metainfo=dict(classes=classes),
-        ann_file='val.json',
-        data_prefix=dict(img='val/'),
+        ann_file='stfold/val_kfold_0.json',
+        data_prefix=dict(img=''),
         test_mode=False,
         pipeline=test_pipeline,
         backend_args=backend_args))
@@ -130,39 +64,38 @@ test_dataloader = val_dataloader
 
 val_evaluator = dict(
     type='CocoMetric',
-    ann_file=data_root + 'val.json',
+    ann_file=data_root + 'stfold/val_kfold_0.json',
     metric='bbox',
     format_only=False,
     classwise=True,
+    outfile_prefix='./work_dirs/val/dino_val.json',
     backend_args=backend_args)
 test_evaluator = val_evaluator
 
 # inference on test dataset and
 # format the output results for submission.
-test_dataloader = dict(
-    batch_size=1,
-    num_workers=2,
-    persistent_workers=True,
-    drop_last=False,
-    sampler=dict(type='DefaultSampler', shuffle=False),
-    dataset=dict(
-        type=dataset_type,
-        data_root=test_root,
-        metainfo=dict(classes=classes),
-        ann_file='test.json',
-        data_prefix=dict(img=''),
-        test_mode=True,
-        # pipeline=test_pipeline,
-        pipeline=tta_pipeline
-        ))
+# test_dataloader = dict(
+#     batch_size=1,
+#     num_workers=2,
+#     persistent_workers=True,
+#     drop_last=False,
+#     sampler=dict(type='DefaultSampler', shuffle=False),
+#     dataset=dict(
+#         type=dataset_type,
+#         data_root=data_root,
+#         metainfo=dict(classes=classes),
+#         ann_file=data_root + 'test.json',
+#         data_prefix=dict(img=''),
+#         test_mode=True,
+#         pipeline=test_pipeline))
 
-test_evaluator = dict(
-    type='CocoMetric',
-    metric='bbox',
-    format_only=True,
-    classwise=True,
-    ann_file=test_root + 'test.json',
-    outfile_prefix='./work_dirs/test')
+# test_evaluator = dict(
+#     type='CocoMetric',
+#     metric='bbox',
+#     format_only=True,
+#     classwise=True,
+#     ann_file=data_root + 'test.json',
+#     outfile_prefix='./work_dirs/test')
 
 ################################ DATASET! #############################################
 #######################################################################################
@@ -176,7 +109,7 @@ default_hooks = dict(
     logger=dict(type='LoggerHook', interval=10),
     param_scheduler=dict(type='ParamSchedulerHook'),
     checkpoint=dict(type='CheckpointHook', interval=1,
-                    max_keep_ckpts=2, 
+                    max_keep_ckpts=3, 
                     save_best="coco/bbox_mAP",
                     rule="greater"),
     sampler_seed=dict(type='DistSamplerSeedHook'),
@@ -199,8 +132,8 @@ vis_backends = [dict(type='LocalVisBackend')]
 #         type='MLflowVisBackend',
 #         save_dir='/data/ephemeral/home/db_dir',
 #         exp_name='model_test',
-#         run_name=f'dino_aug_5_Focal_S_L1',
-#         tracking_uri='https://043f-223-130-141-5.ngrok-free.app',
+#         run_name=f'dino',
+#         tracking_uri='https://b132-223-130-141-5.ngrok-free.app/',
 #         artifact_suffix=['.json', '.log', '.py', 'yaml']
 #     )
 # ]
@@ -212,8 +145,8 @@ visualizer = dict(
 log_processor = dict(type='LogProcessor', window_size=50, by_epoch=True)
 
 log_level = 'INFO'
-load_from = "/data/ephemeral/home/project2/level2-objectdetection-cv-08/mmdetection/work_dirs/train_base_dino/best_coco_bbox_mAP_epoch_9.pth"
-resume = True
+load_from = None
+resume = False
 
 ################################# RUNTIME! ############################################
 #######################################################################################
@@ -222,7 +155,7 @@ resume = True
 ################################# SCHEDULER! ##########################################
 # training schedule for 1x
 
-max_epochs = 20
+max_epochs = 12
 
 train_cfg = dict(type='EpochBasedTrainLoop', max_epochs=max_epochs, val_interval=1)
 val_cfg = dict(type='ValLoop')
@@ -235,7 +168,7 @@ param_scheduler = [
         begin=0,
         end=max_epochs,
         by_epoch=True,
-        milestones=[15],
+        milestones=[11],
         gamma=0.1)
 ]
 
@@ -246,7 +179,7 @@ optim_wrapper = dict(
         type='AdamW',
         lr=0.0001,  # 0.0002 for DeformDETR
         weight_decay=0.0001),
-    clip_grad=dict(max_norm=0.1/2, norm_type=2),
+    clip_grad=dict(max_norm=0.1, norm_type=2),
     paramwise_cfg=dict(custom_keys={'backbone': dict(lr_mult=0.1)})
 )  # custom_keys contains sampling_offsets and reference_points in DeformDETR  # noqa
 
