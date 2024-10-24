@@ -61,47 +61,32 @@
 ## 🥉 프로젝트 구조
 ```
 project/
-├── config.yaml
-├── README.md
-├── requirements.txt
-├── setup.sh
-|
-├── detectron2
-├── mmdetection
-├── refac_torchvision
-├── tools
-├── configs
-|       config_manager.py
-|
-├── data
-|       custom_dataset.py
-|       cutmix.py
-|       cutmix_loader.py
-|       data_loader.py
-|       transform_selector.py
-|
-├── EDA
-|       Level_1_CV_08_EDA.pptx
-|
-├── models
-|       model_selector.py
-|
-├── optimizers
-|       optimizer.py
-|
-├── schedulers
-|       customCosineWR.py
-|       scheduler.py
-|
-├── trainers
-|       inference_runner.py
-|       loss.py
-|       metric.py
-|       test_runner.py
-|       train_runner.py
-|
-└── utils
-        utils.py
+.
+|-- mmdetection
+|-- EDA
+|   `-- CV08_EDA.pdf
+|-- README.md
+|-- refac_torchvision
+|   |-- data
+|   |-- main.py
+|   |-- models
+|   |-- process
+|   `-- train
+|-- requirements.txt
+|-- start_ngrok.py
+|-- tools
+|   |-- bbox_visualize.ipynb
+|   |-- coco2yolo.py
+|   |-- ensemble.ipynb
+|   |-- json_bbox_check.ipynb
+|   |-- jsontocsv.ipynb
+|   |-- offline_score_filter.ipynb
+|   |-- train_bbox_count.ipynb
+|   `-- unique_ids.ipynb
+`-- yolo
+    |-- cfg
+    |-- yolo_inference.ipynb
+    `-- yolo_train.ipynb
 ```
 
 ### 1) `configs`
@@ -136,6 +121,9 @@ project/
 
 ```bash
 pip install -r requirements.txt
+mim install mmcv-full==1.7.0
+mim install mmcv==2.1.0
+mim install mmengine
 ```
 
 - visdom==0.2.4
@@ -150,7 +138,7 @@ pip install -r requirements.txt
 - map-boxes==1.0.5
 - jupyter==1.0.0
 - openmim
-- mmcv-full==2.1.0
+- mmdet==3.3.0
 
 <br />
 
