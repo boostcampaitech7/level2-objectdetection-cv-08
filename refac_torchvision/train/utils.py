@@ -3,12 +3,13 @@ import torch
 import random
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.metrics import precision_recall_curve
 from sklearn.model_selection import StratifiedGroupKFold
-from sklearn.preprocessing import label_binarize
 import matplotlib.patches as patches
 from PIL import Image
 import io
+import sys
+from data.custom_dataset import CustomDataset
+from data.transforms import get_transform
 
 def collate_fn(batch):
     return tuple(zip(*batch))
@@ -45,7 +46,6 @@ def visualize_image_with_boxes(image, boxes):
 
     ax.axis('off')
 
-    # 여백을 최소화한 상태로 저장
     buf = io.BytesIO()
     plt.savefig(buf, format='png', bbox_inches='tight', pad_inches=0)
     buf.seek(0)
@@ -53,52 +53,85 @@ def visualize_image_with_boxes(image, boxes):
     plt.close(fig)
     return Image.open(buf)
 
-# 시드 설정 함수: 실험 재현성을 보장하기 위해 시드 설정
-def set_seed(seed=42):
-    random.seed(seed)  # Python 랜덤 시드
-    np.random.seed(seed)  # NumPy 랜덤 시드
-    torch.manual_seed(seed)  # PyTorch에서 CPU 시드 고정
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed(seed)  # PyTorch에서 CUDA 시드 고정
-        torch.cuda.manual_seed_all(seed)  # 다중 GPU 사용 시 모든 GPU에 시드 고정
 
-# StratifiedGroupKFold로 데이터를 나누는 함수
+def visualize_box_comparison(annotation, data_dir, index=2, save_path='/data/ephemeral/home/faster_rcnn/refac_torchvision/processing_img_with_boxes.png'):
+    train_no_process_dataset = CustomDataset(annotation, data_dir, get_transform(train=False),filter_bbox=False)
+    process_train_dataset = CustomDataset(annotation, data_dir, get_transform(train=True),filter_bbox=False)
+
+    image_no_process, target_no_process = train_no_process_dataset.__getitem__(index)
+    image_process, target_process = process_train_dataset.__getitem__(index)
+
+    image_no_process = image_no_process.permute(1, 2, 0).numpy()
+    image_process = image_process.permute(1, 2, 0).numpy()
+
+    boxes_no_process = target_no_process['boxes'].numpy()
+    boxes_process = target_process['boxes'].numpy()
+
+    image_no_process_with_boxes = visualize_image_with_boxes(image_no_process, boxes_no_process)
+
+    image_process_with_boxes = visualize_image_with_boxes(image_process, boxes_process)
+
+    fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+    axes[0].imshow(image_no_process_with_boxes)
+    axes[0].set_title('Original')
+    axes[1].imshow(image_process_with_boxes)
+    axes[1].set_title('Processed')
+
+    plt.tight_layout()
+    plt.savefig(save_path)
+    plt.close()
+    sys.exit()
+
+def visualized_process_img(annotation, data_dir, index=2, save_path='/data/ephemeral/home/faster_rcnn/refac_torchvision/processing_img.png'):
+    train_no_process_dataset = CustomDataset(annotation, data_dir, get_transform(train=False))
+    process_train_dataset = CustomDataset(annotation, data_dir, get_transform(train=True))
+    image_no_process, _ = train_no_process_dataset.__getitem__(index)
+    image_process, _ = process_train_dataset.__getitem__(index)
+
+    fig, axes = plt.subplots(1, 2, figsize=(10, 5))  # 1x2 레이아웃, 10x5 인치 크기
+
+    image_no_process = image_no_process.permute(1, 2, 0)
+    image_process = image_process.permute(1, 2, 0)
+
+    axes[0].imshow(image_no_process)
+    axes[0].set_title('origin')
+
+    axes[1].imshow(image_process)
+    axes[1].set_title('processing')
+
+    plt.tight_layout()
+    plt.savefig(save_path)
+    plt.close()
+    sys.exit()
+
+def set_seed(seed=42):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+
 def stratified_group_kfold_split(dataset, n_splits=5, random_state=42):
-    """
-    dataset: CustomDataset 객체 (이미지 ID와 레이블을 포함)
-    """
     image_ids = [img['id'] for img in dataset.coco.dataset['images']]
     labels = []
-    groups = np.array(image_ids)  # 각 이미지가 그룹으로 간주되며, numpy 배열로 변환
+    groups = np.array(image_ids)
 
-    # 각 이미지에 대한 레이블을 추출 (하나의 이미지에 여러 주석이 있을 수 있음)
     for img_id in image_ids:
         ann_ids = dataset.coco.getAnnIds(imgIds=img_id)
         anns = dataset.coco.loadAnns(ann_ids)
         if anns:
-            labels.append(anns[0]['category_id'])  # 이미지의 첫 번째 주석의 category_id를 레이블로 사용
+            labels.append(anns[0]['category_id'])
 
-    # X는 각 이미지 ID를 가진 1차원 배열로 설정
     X = np.ones((len(image_ids), 1))
-    y = np.array(labels)  # 이미지 레벨의 레이블
+    y = np.array(labels)
 
     sgkf = StratifiedGroupKFold(n_splits=n_splits, random_state=random_state, shuffle=True)
     for train_idx, val_idx in sgkf.split(X, y, groups):
         yield train_idx, val_idx
 
-# 결과 폴더 생성 함수
 def create_result_folder(base_dir, model_name, num_epochs):
     result_dir = os.path.join(base_dir, f"{model_name}_{num_epochs}epoch")
     if not os.path.exists(result_dir):
         os.makedirs(result_dir)
     return result_dir
-
-# mAP 곡선 저장 함수
-def save_map_curve(map_values, result_dir):
-    plt.figure()
-    plt.plot(map_values)
-    plt.xlabel('Epochs')
-    plt.ylabel('mAP')
-    plt.title('mAP Curve')
-    plt.savefig(os.path.join(result_dir, 'mAP_curve.png'))
-    plt.close()

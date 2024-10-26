@@ -1,27 +1,24 @@
-from train.utils import (
-    create_result_folder, save_map_curve, Averager)
+from train.utils import Averager, stratified_group_kfold_split, collate_fn
 from models.save_load import save_model
-from train.eval import evaluate_fn
+from models.model import create_model
 import torch
+from torch.utils.data import DataLoader
 from pycocotools.cocoeval import COCOeval
 from tqdm import tqdm
-from train.metric import compute_map_over_iou_ranges
 from torch.cuda.amp import autocast, GradScaler
+import os
 
 # 학습 스텝 함수
-def train_epoch(train_data_loader, optimizer, model, device,scaler):
+def train_epoch(train_data_loader, optimizer, model, device, scaler):
     model.train()
-    train_loss_hist = Averager()  # 손실을 기록할 Averager 클래스
+    train_loss_hist = Averager()
     train_loss_hist.reset()
 
-    # Training loop
     for images, targets in tqdm(train_data_loader, desc="Training"):
         images = list(image.float().to(device) for image in images)
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
-        # bbox 제거 시 사용
-        valid_images = []
-        valid_targets = []
+        valid_images, valid_targets = [], []
         for img, tgt in zip(images, targets):
             if tgt['boxes'].shape[0] > 0:
                 valid_images.append(img)
@@ -30,102 +27,125 @@ def train_epoch(train_data_loader, optimizer, model, device,scaler):
         if len(valid_targets) == 0:
             continue
 
-        # 모델의 예측 및 손실 계산
-        # loss_dict = model(images, targets) 원본
-        # mixed precision
         with autocast():
             loss_dict = model(valid_images, valid_targets)
             losses = sum(loss for loss in loss_dict.values())
             loss_value = losses.item()
 
         train_loss_hist.send(loss_value)
-
-        # Optimizer 스텝
         optimizer.zero_grad()
-
         scaler.scale(losses).backward()
         scaler.step(optimizer)
         scaler.update()
 
-    return train_loss_hist.value  # 에포크 동안의 평균 손실 반환
+    return train_loss_hist.value
 
+# 검증 스텝 함수
 def validate_step(val_data_loader, model, coco, device):
     model.eval()
-    # coco_results = []  # mAP를 위한 예측 결과 저장
-    ground_truths = []
-    detections = []
+    coco_results = []
 
     with torch.no_grad():
         for images, targets in tqdm(val_data_loader, desc="Validating"):
-            images = list(image.to(device) for image in images)
-            targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
-
-            # 검증 시에는 손실을 계산하지 않고, 예측 결과만 수집
+            images = [image.to(device) for image in images]
             outputs = model(images)
+
             for i, output in enumerate(outputs):
-                gt_boxes = targets[i]['boxes'].cpu().numpy()
-                pred_boxes = output['boxes'].cpu().numpy()
+                boxes = output['boxes'].cpu().numpy()
                 scores = output['scores'].cpu().numpy()
                 labels = output['labels'].cpu().numpy()
-
-                # 실제 값 수집
-                for gt_box in gt_boxes:
-                    ground_truths.append({
-                        'image_id': targets[i]['image_id'],
-                        'bbox': gt_box
+                for box, score, label in zip(boxes, scores, labels):
+                    coco_results.append({
+                        'image_id': int(targets[i]['image_id']),
+                        'category_id': int(label) - 1,
+                        'bbox': box.tolist(),
+                        'score': float(score)
                     })
 
-                # 예측 값 수집
-                for box, score, label in zip(pred_boxes, scores, labels):
-                    detections.append({
-                        'image_id': targets[i]['image_id'],
-                        'bbox': box,
-                        'score': score,
-                        'label': label
-                    })
+    if coco:
+        coco_dt = coco.loadRes(coco_results)
+        coco_eval = COCOeval(coco, coco_dt, 'bbox')
+        coco_eval.evaluate()
+        coco_eval.accumulate()
+        coco_eval.summarize()
 
-    # IoU 임계값별 mAP 계산
-    mean_ap, precision_list, recall_list = compute_map_over_iou_ranges(ground_truths, detections)
-    
-    print(f"mAP: {mean_ap:.4f}")
-    print(f"Precision at IoU thresholds: {precision_list}")
-    print(f"Recall at IoU thresholds: {recall_list}")
+        coco_metrics = {
+            "mAP@0.5:0.95": coco_eval.stats[0],
+            "mAP@0.5": coco_eval.stats[1],
+            "mAP@0.75": coco_eval.stats[2],
+            "mAP_small": coco_eval.stats[3],
+            "mAP_medium": coco_eval.stats[4],
+            "mAP_large": coco_eval.stats[5],
+            "AR@1": coco_eval.stats[6],
+            "AR@10": coco_eval.stats[7],
+            "AR@100": coco_eval.stats[8],
+            "AR@100_small": coco_eval.stats[9],
+            "AR@100_medium": coco_eval.stats[10],
+            "AR@100_large": coco_eval.stats[11],
+        }
+    else:
+        coco_metrics = {"mAP@0.5:0.95": 0.0}
 
-    #         for i, output in enumerate(outputs):
-    #             boxes = output['boxes'].cpu().numpy()
-    #             boxes[:, 2] = boxes[:, 2] - boxes[:, 0]  # width
-    #             boxes[:, 3] = boxes[:, 3] - boxes[:, 1]
-    #             scores = output['scores'].cpu().numpy()
-    #             labels = output['labels'].cpu().numpy()
-    #             for box, score, label in zip(boxes, scores, labels):
-    #                 coco_results.append({
-    #                     'image_id': int(targets[i]['image_id']),
-    #                     'category_id': int(label)-1,
-    #                     'bbox': box.tolist(),
-    #                     'score': float(score)
-    #                 })
+    return coco_metrics
 
-    # # COCO API로 mAP 계산
-    # coco_dt = coco.loadRes(coco_results)
-    # coco_eval = COCOeval(coco, coco_dt, 'bbox')
-    # coco_eval.evaluate()
-    # coco_eval.accumulate()
-    # coco_eval.summarize()
+# 일반 학습 실행 함수
+def run_standard_training(train_data_loader, val_data_loader, model, optimizer, scheduler, scaler, device, base_dir, num_epochs):
+    best_map = 0
 
-    # current_map = coco_eval.stats[0]  # mAP 0.5:0.95
+    for epoch in range(num_epochs):
+        train_loss = train_epoch(train_data_loader, optimizer, model, device, scaler)
+        validation_metrics = validate_step(val_data_loader, model, None, device)
+        scheduler.step()
 
-    return mean_ap  # 검증 손실 대신 mAP만 반환
+        print(f"Epoch #{epoch + 1} | Train Loss: {train_loss:.4f}")
+        print("Validation Metrics:")
+        for metric, value in validation_metrics.items():
+            print(f"  {metric}: {value:.4f}")
 
-# 학습 및 검증을 진행하는 최종 함수
-def train_fn(model_name, train_data_loader, val_data_loader, optimizer, model, coco, device, base_dir, fold_idx,epoch):
-    train_losses = [] # 손실과 mAP 기록 리스트
-    scaler = GradScaler()
+        if validation_metrics["mAP@0.5"] > best_map:
+            best_map = validation_metrics["mAP@0.5"]
+            model_save_path = os.path.join(base_dir, "best_model.pth")
+            save_model(model, model_save_path)
+            print(f"Best model saved to {model_save_path}")
 
-    # 1. 학습 스텝
-    train_loss = train_epoch(train_data_loader, optimizer, model, device,scaler)
-    train_losses.append(train_loss)
+# K-Fold 학습 실행 함수
+def run_fold_training(train_dataset, model_name, device, base_dir, num_epochs, n_splits, batch_size, learning_rate, momentum, weight_decay):
+    best_global_map = 0
+    best_global_model_path = ""
 
-    # 2. 검증 스텝 (mAP 계산)
-    current_map = validate_step(val_data_loader, model, coco, device)
-    print(f"Epoch #{epoch + 1} | Train Loss: {train_loss:.4f}, mAP: {current_map:.4f}")
-    return current_map
+    for fold_idx, (train_idx, val_idx) in enumerate(stratified_group_kfold_split(train_dataset, n_splits=n_splits)):
+        print(f"Starting fold {fold_idx + 1}/{n_splits}")
+        train_subset = torch.utils.data.Subset(train_dataset, train_idx)
+        val_subset = torch.utils.data.Subset(train_dataset, val_idx)
+
+        train_data_loader = DataLoader(train_subset, batch_size=batch_size, shuffle=True, num_workers=4, collate_fn=collate_fn)
+        val_data_loader = DataLoader(val_subset, batch_size=batch_size, shuffle=False, num_workers=4, collate_fn=collate_fn)
+
+        model = create_model(model_name, num_classes=11).to(device)
+        optimizer = torch.optim.SGD([p for p in model.parameters() if p.requires_grad],
+                                    lr=learning_rate, momentum=momentum, weight_decay=weight_decay)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=40, eta_min=0)
+        scaler = GradScaler()
+        
+        fold_best_map = 0
+        for epoch in range(num_epochs):
+            train_loss = train_epoch(train_data_loader, optimizer, model, device, scaler)
+            validation_metrics = validate_step(val_data_loader, model, None, device)
+            scheduler.step()
+
+            print(f"Fold {fold_idx + 1}/{n_splits}, Epoch #{epoch + 1} | Train Loss: {train_loss:.4f}")
+            print("Validation Metrics:")
+            for metric, value in validation_metrics.items():
+                print(f"  {metric}: {value:.4f}")
+
+            if validation_metrics["mAP@0.5"] > fold_best_map:
+                fold_best_map = validation_metrics["mAP@0.5"]
+                fold_best_model_path = os.path.join(base_dir, f"{model_name}_fold{fold_idx}_best.pth")
+                save_model(model, fold_best_model_path)
+                print(f"Best model saved to {fold_best_model_path}")
+
+        if fold_best_map > best_global_map:
+            best_global_map = fold_best_map
+            best_global_model_path = fold_best_model_path
+
+    print(f"Best model path across folds: {best_global_model_path} with mAP@0.5: {best_global_map:.4f}")
