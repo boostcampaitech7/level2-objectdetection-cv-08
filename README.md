@@ -28,11 +28,11 @@
 
 ## 🥈 프로젝트 결과
 ### Public
--  / 24
-- mAP50 : 
+- **18** / 24
+- mAP50 : **0.6877**
 ### Private
--  / 24
-- mAP50 : 
+- **18** / 24
+- mAP50 : **0.6754**
 
 <br />
 
@@ -53,63 +53,90 @@
 - 분류 클래스(10개) : General trash, Paper, Paper pack, Metal, Glass, Plastic, Styrofoam, Plastic bag, Battery, Clothing
 - 전체 데이터 중 학습데이터 4883장, 평가데이터 4871장으로 사용
 - 학습 데이터 형식: COCO format
-- 제출 형식 : Pascal VOC format, .csv 파일
+- 제출 형식 : Pascal VOC format csv 파일
 <br />
-
-# `여기까지 수정`
 
 ## 🥉 프로젝트 구조
 ```
 project/
-.
-|-- mmdetection
-|-- EDA
-|   `-- CV08_EDA.pdf
-|-- README.md
-|-- refac_torchvision
-|   |-- data
-|   |-- main.py
-|   |-- models
-|   |-- process
-|   `-- train
-|-- requirements.txt
-|-- start_ngrok.py
-|-- tools
-|   |-- bbox_visualize.ipynb
-|   |-- coco2yolo.py
-|   |-- ensemble.ipynb
-|   |-- json_bbox_check.ipynb
-|   |-- jsontocsv.ipynb
-|   |-- offline_score_filter.ipynb
-|   |-- train_bbox_count.ipynb
-|   `-- unique_ids.ipynb
-`-- yolo
-    |-- cfg
-    |-- yolo_inference.ipynb
-    `-- yolo_train.ipynb
+│   README.md
+│   requirements.txt
+│   start_ngrok.py
+│
+├───EDA
+│       CV08_EDA.pdf
+│
+├───mmdetection
+│   ├───configs
+│   │   ├───a_custom
+│   │             train_base_cascade.py
+│   │             train_base_cascade_swin_L.py
+│   │             train_base_ddq.py
+│   │             train_base_deformable_detr.py
+│   │             train_base_dino.py
+│   │             train_base_dino_val.py
+│   │             train_base_efficientNet.py
+│   │             train_base_faster_rcnn.py
+│   │             train_base_retinanet_swin_L.py
+│   ├───tools
+│            fold_train.py
+│
+├───refac_torchvision
+│   │   main.py
+│   │
+│   ├───data
+│   │       custom_dataset.py
+│   │       transforms.py
+│   │
+│   ├───models
+│   │       model.py
+│   │       save_load.py
+│   │
+│   ├───process
+│   │       img_process.py
+│   │
+│   └───train
+│           eval.py
+│           loss.py
+│           train.py
+│           utils.py
+│
+├───tools
+│       cleansing_labels.ipynb
+│       coco2yolo.py
+│       csv_bbox_visualize.ipynb
+│       ensemble.ipynb
+│       json_bbox_visualize.ipynb
+│       json_coco2pascal.ipynb
+│
+└───yolo
+    │   yolo_inference.ipynb
+    │   yolo_train.ipynb
+    │
+    └───cfg
+            coco-trash.yaml
 ```
+### 1) MMDetection
+- `configs/a_custom/`: MMDetection 모델의 학습과 추론에 필요한 설정 파일들을 포함하고 있습니다.
+- `tools/fold_train.py`: Stratified Group K-Fold 교차 검증을 통한 학습을 위한 스크립트입니다.
 
-### 1) `configs`
-- 설정 파일을 관리하는 폴더
-- `config_manager.py`는 `config.yaml`을 불러와 학습 및 추론에 필요한 설정을 관리합니다.
-### 2) `datas`
-- 데이터 로딩 및 전처리를 담당하는 폴더
-- `custom_dataset.py`에서는 커스텀 데이터셋을 정의하며, `cutmix.py`와 같은 데이터 증강 기법도 포함되어 있습니다.
-### 3) `models`
-- 모델 선택 및 초기화 로직을 정의하는 폴더
-- `model_selector.py`에서 `timm 라이브러리`를 통해 다양한 사전 학습된 모델을 선택하고 사용할 수 있습니다.
-### 4) `optimizers`
-- 학습 중 Learning Rate 조절을 위한 스케줄러를 정의하는 폴더
-- `optimizer.py`에서 `Adam`, `SGD`, `AdamW` 옵티마이저를 설정할 수 있습니다.
-### 5) `schedulers`
-- 학습 중 Learning Rate 조절을 위한 스케줄러를 정의하는 폴더
-- `scheduler.py`는 다양한 학습률 조절 방법을 제공합니다.
-### 6) `trainers`
-- 학습과 추론에 필요한 주요 로직을 포함하는 폴더
-- `train_runner.py`는 학습을 진행하는 클래스이며, `test_runner.py`는 모델 평가를 수행합니다.
-### 7) `utils`
-- 학습과 테스트 과정에서 사용되는 유틸리티 함수들을 정의한 폴더
-- `utils.py`는 로깅, 체크포인트 저장 등 다양한 기능을 제공합니다.
+### 2) refac_torchvision
+- `data/`: 데이터셋 로딩 및 전처리 관련 코드를 포함합니다.
+- `models/`: 모델 로드 및 저장 관련 파일을 포함합니다.
+- `process/`: 이미지 전처리 기능을 제공합니다.
+- `train/`: 모델 학습 및 평가에 필요한 기능들을 제공합니다.
+
+### 3) tools
+- `cleansing_labels.ipynb`: 레이블 클렌징 작업을 수행하는 노트북입니다.
+- `coco2yolo.py`: COCO 형식의 데이터셋을 YOLO 형식으로 변환하는 스크립트입니다.
+- `csv_bbox_visualize.ipynb`, `json_bbox_visualize.ipynb`: 바운딩 박스 시각화를 위한 노트북 파일입니다.
+- `json_coco2pascal.ipynb`: COCO 형식의 JSON 파일을 Pascal VOC 형식으로 변환하고 CSV로 저장합니다.
+- `ensemble.ipynb`: CSV 형식으로 출력된 추론 결과 파일들을 앙상블(NMS, WBF) 및 NMW(Non-Maximum Weighted) 방식을 적용하여 최적화합니다.
+
+### 4) YOLO
+- `yolo_inference.ipynb`: YOLO 모델을 이용해 추론 작업을 수행하는 노트북 파일입니다.
+- `yolo_train.ipynb`: YOLO 모델의 학습을 위한 노트북 파일입니다.
+- `cfg/`: YOLO 학습 설정을 위한 구성 파일들을 포함합니다.
 
 <br />
 
@@ -143,32 +170,54 @@ mim install mmengine
 <br />
 
 ## 🚀 빠른 시작
-### Main
-```bash
-python3 main.py
-```
-- `config.yaml` 파일을 수정한 후, 해당 명령어를 사용하여 학습과 추론을 모두 진행할 수 있습니다. 
 ### Train
-```bash
-python tools/train.py configs/a_custom/model_name.py
+#### MMDetection
+
+```python
+# fold train
+python tools/fold_train.py {config_path}
+
+# train
+python tools/train.py {config_path}
 ```
-- `--config_path` : 설정 파일 경로 (기본값 : config.yaml)
-- `--split_ratio` : 학습/검증 데이터 분할 비율 (기본값 : 0.2)
-- `--use_cutmix` : CutMix 사용시 플래그 추가
-- `--epochs` : 학습할 에폭 수 (기본값 : 5)
-- `--lr` : 학습률 설정
-- `--batch_size` : 배치 크기 설정
-- `--img_size` : Resize 이미지 크기
-- `--model_name` : 사용할 모델 이름 (timm모델 사용, 기본값 : resnet50)
+
+#### Torchvision
+```python
+python main.py
+```
+##### Torchvision Parser
+기본 설정
+- `--annotations_path` : train.json path
+- `--data_dir` : Dataset directory
+- `--model_name` : 학습 진행할 모델 이름 ( 기본값: Faster RCNN )
+- `--device` : `cuda` or `cup` ( 기본값 : cuda )
+- `--base_dir` : result path
+
+학습 설정
+- `--num_epochs` : 학습할 에폭 수 (기본값 : 1)
+- `--batch_size` : 배치 크기 결정 ( 기본값 : 32 )
+- `--n_split` : fold split 수량 ( 기본값 : 5 )
+- `--training_mode` : `standard` or `fold` (필수)
+
+옵티마이저 설정
+- `--optimizer` : `SGD` or `AdamW` ( 기본값 : SGD )
+- `--learning_rate` : 학습률 설정 ( 기본값 : 0.001)
+- `--momentum` : SGD Momentum 값 설정 ( 기본값 0.9 )
+- `--weight_decay` : 옵티마이저 weight decay 설정 ( 기본값 : 0.0009 )
+
+스케쥴러 설정 (CosineAnnealing)
+- `--scheduler_t_max` : 코사인 어널링 t max 설정 ( 기본값 : 40)
+- `--scheduler_eta_min` : 코사인 어널링 eta min 설정 ( 기본값 : 0)
 
 ### Test
-```bash
-python3 test.py --model_name resnet50 --file_path ./best_model.pt
+#### MMDetection
+```python
+python tools/test.py {config_path} {pth_file_path}
 ```
-- `--model_name` : 모델 아키텍쳐 이름 (필수)
-- `--file_path` : 저장된 모델 파일 경로 (필수)
 
+##### MMDetection Parser
+- `--tta` : Test Time Augmentation 활성화
 <br />
 
 ## 🏅 Wrap-Up Report   
-### [ Wrap-Up Report 👑](https://github.com/boostcampaitech7/level1-imageclassification-cv-08/blob/main/warm_up_report/CV%EA%B8%B0%EC%B4%88%EB%8C%80%ED%9A%8C_CV_%ED%8C%80%20%EB%A6%AC%ED%8F%AC%ED%8A%B8(08%EC%A1%B0).pdf)
+### [ Wrap-Up Report 👑]
