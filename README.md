@@ -220,4 +220,4 @@ python tools/test.py {config_path} {pth_file_path}
 <br />
 
 ## 🏅 Wrap-Up Report   
-### [ Wrap-Up Report 👑]
+### [ Wrap-Up Report 👑](https://github.com/boostcampaitech7/level2-objectdetection-cv-08/blob/main/WRAP_UP/CV08_level2_%EB%9E%A9%EC%97%85%EB%A6%AC%ED%8F%AC%ED%8A%B8.pdf)
