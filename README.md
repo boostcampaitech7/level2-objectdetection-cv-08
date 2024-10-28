@@ -118,23 +118,23 @@ project/
 ```
 ### 1) MMDetection
 - `configs/a_custom/`: MMDetection 모델의 학습과 추론에 필요한 설정 파일들을 포함하고 있습니다.
-- `tools/fold_train.py`: Stratified Group K-Fold 교차 검증을 통한 학습을 위한 스크립트입니다.
+- `tools/fold_train.py`: Stratified Group K-Fold 교차 검증을 통한 학습을 제공합니다.
 
 ### 2) refac_torchvision
-- `data/`: 데이터셋 로딩 및 전처리 관련 코드를 포함합니다.
-- `models/`: 모델 로드 및 저장 관련 파일을 포함합니다.
+- `data/`: 데이터셋 로딩 및 증강 관련 파일들을 포함하고 있습니다.
+- `models/`: 모델 로드 및 저장 관련 파일들을 포함하고 있습니다.
 - `process/`: 이미지 전처리 기능을 제공합니다.
-- `train/`: 모델 학습 및 평가에 필요한 기능들을 제공합니다.
+- `train/`: 모델 학습 및 평가에 필요한 파일들을 포함하고 있습니다.
 
 ### 3) tools
-- `cleansing_labels.ipynb`: 레이블 클렌징 작업을 수행하는 노트북입니다.
-- `coco2yolo.py`: COCO 형식의 데이터셋을 YOLO 형식으로 변환하는 스크립트입니다.
-- `csv_bbox_visualize.ipynb`, `json_bbox_visualize.ipynb`: 바운딩 박스 시각화를 위한 노트북 파일입니다.
-- `json_coco2pascal.ipynb`: COCO 형식의 JSON 파일을 Pascal VOC 형식으로 변환하고 CSV로 저장합니다.
+- `cleansing_labels.ipynb`: 레이블 클렌징 작업을 수행합니다.
+- `coco2yolo.py`: COCO 형식의 데이터셋을 YOLO 형식으로 변환합니다.
+- `csv_bbox_visualize.ipynb`, `json_bbox_visualize.ipynb`: 바운딩 박스 시각화를 수행합니다.
+- `json_coco2pascal.ipynb`: 추론 결과가 저장된 COCO 형식의 JSON 파일을 Pascal VOC 형식으로 변환하고, 이를 CSV 파일로 저장합니다.
 - `ensemble.ipynb`: CSV 형식으로 출력된 추론 결과 파일들을 앙상블(NMS, WBF) 및 NMW(Non-Maximum Weighted) 방식을 적용하여 최적화합니다.
 
 ### 4) YOLO
-- `yolo_inference.ipynb`: YOLO 모델을 이용해 추론 작업을 수행하는 노트북 파일입니다.
+- `yolo_inference.ipynb`: YOLO 모델을 이용해 추론 작업을 수행합니다.
 - `yolo_train.ipynb`: YOLO 모델의 학습을 위한 노트북 파일입니다.
 - `cfg/`: YOLO 학습 설정을 위한 구성 파일들을 포함합니다.
 
